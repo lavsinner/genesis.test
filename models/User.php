@@ -4,6 +4,10 @@ namespace app\models;
 
 class User extends \yii\base\Object implements \yii\web\IdentityInterface
 {
+    const STATUS_INACTIVE = 0;
+    const STATUS_ACTIVE = 1;
+    const STATUS_DELETED = 5;
+
     public $id;
     public $username;
     public $password;
