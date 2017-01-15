@@ -45,14 +45,8 @@ class UserController extends \yii\web\Controller
             $this->redirect(['/user/view', 'id' => \Yii::$app->user->getId()]);
         }
         $user = User::findIdentity($id);
-        $userData = $user->userData;
-        $avatar = $user->avatar;
-        if (!$userData) {
-            $userData = new UserData();
-        }
-        if (!$avatar) {
-            $avatar = new Image();
-        }
+        $userData = $user->userData ?: new UserData();
+        $avatar = $user->avatar ?: new Image();
 
         if (\Yii::$app->request->post('UserData')) {
             $userData->load(\Yii::$app->request->post());
