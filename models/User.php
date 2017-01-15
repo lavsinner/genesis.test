@@ -2,36 +2,76 @@
 
 namespace app\models;
 
-class User extends \yii\base\Object implements \yii\web\IdentityInterface
+use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveRecord;
+use yii\web\IdentityInterface;
+use Yii;
+
+/**
+ * User model
+ *
+ * @property integer $id
+ * @property string $username
+ * @property string $password_hash
+ * @property string $password_reset_token
+ * @property string $email
+ * @property string $auth_key
+ * @property string $login_token
+ * @property integer $status
+ * @property integer $created_at
+ * @property integer $updated_at
+ * @property string $password write-only password
+ */
+class User extends ActiveRecord implements IdentityInterface
 {
     const STATUS_INACTIVE = 0;
     const STATUS_ACTIVE = 1;
     const STATUS_DELETED = 5;
 
-    private static $users = [
-        '100' => [
-            'id' => '100',
-            'username' => 'admin',
-            'password' => 'admin',
-            'authKey' => 'test100key',
-            'accessToken' => '100-token',
-        ],
-        '101' => [
-            'id' => '101',
-            'username' => 'demo',
-            'password' => 'demo',
-            'authKey' => 'test101key',
-            'accessToken' => '101-token',
-        ],
+    protected static $fieldTokenTypeMapping = [
+        'login_with_email' => 'login_token'
     ];
 
+    /**
+     * @inheritdoc
+     */
+    public static function tableName()
+    {
+        return '{{%user}}';
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function behaviors()
+    {
+        return [
+            TimestampBehavior::className(),
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function rules()
+    {
+        return [
+            ['status', 'default', 'value' => self::STATUS_INACTIVE],
+            ['status', 'in', 'range' => [self::STATUS_INACTIVE, self::STATUS_ACTIVE, self::STATUS_DELETED]],
+        ];
+    }
 
     /**
      * @inheritdoc
      */
     public static function findIdentity($id)
     {
-        return isset(self::$users[$id]) ? new static(self::$users[$id]) : null;
+        return static::findOne(['id' => $id, 'status' => static::STATUS_ACTIVE]);
+    }
+
+    public static function getFieldByTokenType($tokenType)
+    {
+        return static::$fieldTokenTypeMapping[$tokenType];
     }
 
     /**
@@ -39,30 +79,31 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public static function findIdentityByAccessToken($token, $type = null)
     {
-        foreach (self::$users as $user) {
-            if ($user['accessToken'] === $token) {
-                return new static($user);
-            }
-        }
-
-        return null;
+        return static::findOne([$type => $token]);
     }
 
     /**
-     * Finds user by username
-     *
-     * @param string $username
-     * @return static|null
+     * @inheritdoc
+     */
+    public static function findByEmail($email)
+    {
+        return static::findOne(['email' => $email]);
+    }
+
+    /**
+     * @inheritdoc
      */
     public static function findByUsername($username)
     {
-        foreach (self::$users as $user) {
-            if (strcasecmp($user['username'], $username) === 0) {
-                return new static($user);
-            }
-        }
+        return static::findOne(['username' => $username, 'status' => static::STATUS_ACTIVE]);
+    }
 
-        return null;
+    /**
+     * @inheritdoc
+     */
+    public static function findByLoginToken($loginToken)
+    {
+        return static::findOne(['login_token' => $loginToken]);
     }
 
     /**
@@ -78,7 +119,7 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public function getAuthKey()
     {
-        return $this->authKey;
+        return $this->auth_key;
     }
 
     /**
@@ -86,7 +127,7 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public function validateAuthKey($authKey)
     {
-        return $this->authKey === $authKey;
+        return $this->getAuthKey() === $authKey;
     }
 
     /**
@@ -97,6 +138,44 @@ class User extends \yii\base\Object implements \yii\web\IdentityInterface
      */
     public function validatePassword($password)
     {
-        return $this->password === $password;
+        return Yii::$app->security->validatePassword($password, $this->password_hash);
+    }
+
+    /**
+     * Finds out if token is valid
+     *
+     * @param string $token password reset token
+     * @param string $type
+     * @return bool
+     */
+    public static function isTokenValid($token, $type = 'login_with_email')
+    {
+        if (empty($token)) {
+            return false;
+        }
+
+        $timestamp = (int) substr($token, strrpos($token, '_') + 1);
+        $expire = Yii::$app->params['user.' . $type . '_expire'];
+        return $timestamp + $expire >= time();
+    }
+
+    /**
+     * Generates new token
+     *
+     * @param string $type;
+     */
+    public function generateToken($type)
+    {
+        $this->{static::$fieldTokenTypeMapping[$type]} = Yii::$app->security->generateRandomString() . '_' . time();
+    }
+
+    /**
+     * Remove token
+     *
+     * @param $type
+     */
+    public function removeToken($type)
+    {
+        $this->{static::$fieldTokenTypeMapping[$type]} = null;
     }
 }
