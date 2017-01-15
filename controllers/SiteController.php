@@ -2,6 +2,8 @@
 
 namespace app\controllers;
 
+use app\models\LoginWithEmailForm;
+use app\models\User;
 use Yii;
 use yii\filters\AccessControl;
 use yii\web\Controller;
@@ -19,8 +21,13 @@ class SiteController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['logout'],
+                'only' => ['logout', 'login-with-email-request'],
                 'rules' => [
+                    [
+                        'actions' => ['login-with-email-request'],
+                        'allow' => true,
+                        'roles' => ['?'],
+                    ],
                     [
                         'actions' => ['logout'],
                         'allow' => true,
@@ -60,6 +67,10 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
+        if (Yii::$app->user->isGuest) {
+            return $this->redirect(['/site/login-with-email-request']);
+        }
+
         return $this->render('index');
     }
 
@@ -121,5 +132,40 @@ class SiteController extends Controller
     public function actionAbout()
     {
         return $this->render('about');
+    }
+
+    public function actionLoginWithEmailRequest()
+    {
+        $model = new LoginWithEmailForm();
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            if ($model->getOrCreateUser() && $model->sendEmail()) {
+                Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
+
+                return $this->goHome();
+            } else {
+                Yii::$app->session->setFlash('error', 'Sorry, we are unable to send login link for email provided.');
+            }
+        }
+
+        return $this->render('loginWithEmailRequest', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * @param $token
+     * @return \yii\web\Response
+     */
+    public function actionLoginWithEmail($token)
+    {
+        $user = User::findByLoginToken($token);
+        if ($user && ($user->status === User::STATUS_ACTIVE)) {
+            $user->removeToken('login_with_email');
+            $user->save();
+            Yii::$app->user->login($user, 3600 * 24 * 30);
+            return $this->redirect(['/site/index']);
+        }
+
+        return $this->redirect(['/site/login-with-email-request']);
     }
 }
