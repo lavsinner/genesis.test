@@ -18,6 +18,8 @@ use Yii;
  * @property string $auth_key
  * @property string $login_token
  * @property integer $status
+ * @property object $avatar
+ * @property object $userData
  * @property integer $created_at
  * @property integer $updated_at
  * @property string $password write-only password
@@ -66,7 +68,7 @@ class User extends ActiveRecord implements IdentityInterface
      */
     public static function findIdentity($id)
     {
-        return static::findOne(['id' => $id, 'status' => static::STATUS_ACTIVE]);
+        return static::findOne(['id' => $id]);
     }
 
     public static function getFieldByTokenType($tokenType)
@@ -131,6 +133,24 @@ class User extends ActiveRecord implements IdentityInterface
     }
 
     /**
+     * Generates password hash from password and sets it to the model
+     *
+     * @param string $password
+     */
+    public function setPassword($password)
+    {
+        $this->password_hash = Yii::$app->security->generatePasswordHash($password);
+    }
+
+    /**
+     * Generates "remember me" authentication key
+     */
+    public function generateAuthKey()
+    {
+        $this->auth_key = Yii::$app->security->generateRandomString();
+    }
+
+    /**
      * Validates password
      *
      * @param string $password password to validate
@@ -177,5 +197,21 @@ class User extends ActiveRecord implements IdentityInterface
     public function removeToken($type)
     {
         $this->{static::$fieldTokenTypeMapping[$type]} = null;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getAvatar()
+    {
+        return $this->hasOne(Image::className(), ['uploaded_by' => 'id']);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getUserData()
+    {
+        return $this->hasOne(UserData::className(), ['user_id' => 'id']);
     }
 }

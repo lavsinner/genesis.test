@@ -2,6 +2,7 @@
 
 namespace app\controllers;
 
+use app\models\AuthForm;
 use app\models\LoginWithEmailForm;
 use app\models\User;
 use Yii;
@@ -87,7 +88,7 @@ class SiteController extends Controller
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
+            return $this->redirect(['/user/view', 'id' => $model->getUser()->getId()]);
         }
         return $this->render('login', [
             'model' => $model,
@@ -134,6 +135,9 @@ class SiteController extends Controller
         return $this->render('about');
     }
 
+    /**
+     * @return string|\yii\web\Response
+     */
     public function actionLoginWithEmailRequest()
     {
         $model = new LoginWithEmailForm();
@@ -163,9 +167,29 @@ class SiteController extends Controller
             $user->removeToken('login_with_email');
             $user->save();
             Yii::$app->user->login($user, 3600 * 24 * 30);
-            return $this->redirect(['/site/index']);
+            return $this->redirect(['/user/view', 'id' => $user->getId()]);
         }
 
-        return $this->redirect(['/site/login-with-email-request']);
+        return $this->redirect(['/site/auth', 'id' => $user->getId()]);
+    }
+
+    /**
+     * @param $id
+     * @return string|\yii\web\Response
+     */
+    public function actionAuth($id)
+    {
+        $model = new AuthForm();
+        if ($model->load(Yii::$app->request->post())) {
+            if ($user = $model->auth($id)) {
+                if (Yii::$app->getUser()->login($user)) {
+                    return $this->redirect(['/user/view', 'id' => $user->getId()]);
+                }
+            }
+        }
+
+        return $this->render('auth', [
+            'model' => $model,
+        ]);
     }
 }
