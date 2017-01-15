@@ -67,12 +67,23 @@ class Image extends ActiveRecord
         return $this->hasOne(User::className(), ['id' => 'uploaded_by']);
     }
 
+    /**
+     * Can't user TimestampBehavior here, so we save create_at field before saving the model
+     *
+     * @param bool $insert
+     * @return bool
+     */
     public function beforeSave($insert)
     {
         $this->created_at = time();
         return parent::beforeSave($insert);
     }
 
+    /**
+     * Handling upload for avatar
+     *
+     * @return bool
+     */
     public function upload()
     {
         if ($this->validate()) {
@@ -86,6 +97,12 @@ class Image extends ActiveRecord
         }
     }
 
+    /**
+     * If there is no avatar for user show default
+     *
+     * @param $path
+     * @return string
+     */
     public static function getAvatar($path)
     {
         if(!$path) {

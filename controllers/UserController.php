@@ -41,6 +41,9 @@ class UserController extends \yii\web\Controller
 
     public function actionUpdate($id)
     {
+        if (\Yii::$app->user->getId() !== (int) $id) {
+            $this->redirect(['/user/view', 'id' => \Yii::$app->user->getId()]);
+        }
         $user = User::findIdentity($id);
         $userData = $user->userData;
         $avatar = $user->avatar;

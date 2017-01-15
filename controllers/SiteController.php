@@ -88,7 +88,7 @@ class SiteController extends Controller
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
+            return $this->redirect(['/user/view', 'id' => $model->getUser()->getId()]);
         }
         return $this->render('login', [
             'model' => $model,
@@ -135,6 +135,9 @@ class SiteController extends Controller
         return $this->render('about');
     }
 
+    /**
+     * @return string|\yii\web\Response
+     */
     public function actionLoginWithEmailRequest()
     {
         $model = new LoginWithEmailForm();
@@ -170,6 +173,10 @@ class SiteController extends Controller
         return $this->redirect(['/site/auth', 'id' => $user->getId()]);
     }
 
+    /**
+     * @param $id
+     * @return string|\yii\web\Response
+     */
     public function actionAuth($id)
     {
         $model = new AuthForm();
